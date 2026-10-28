@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CuacaNusantara - Pemantauan Cuaca & Curah Hujan Indonesia</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        .weather-card-gradient-sunny {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde047 100%);
+        }
+        .dark .weather-card-gradient-sunny {
+            background: linear-gradient(135deg, #78350f 0%, #b45309 100%);
+        }
+        .weather-card-gradient-rainy {
+            background: linear-gradient(135deg, #e0f2fe 0%, #38bdf8 100%);
+        }
+        .dark .weather-card-gradient-rainy {
+            background: linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%);
+        }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(156, 163, 175, 0.4);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(156, 163, 175, 0.7);
+        }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-300">
+
+    <!-- Top Navigation Header -->
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 lg:px-8 py-3.5 transition-colors">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <!-- Logo & Title -->
+            <div class="flex items-center space-x-3 w-full md:w-auto justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-sky-500/30">
+                        <i class="fa-solid font-bold fa-cloud-sun-rain text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold bg-gradient-to-r from-sky-600 via-teal-600 to-emerald-600 dark:from-sky-400 dark:via-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
+                            CuacaNusantara
+                        </h1>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Pemantauan & Data Presipitasi Indonesia</p>
+                    </div>
+                </div>
+
+                <!-- Mobile Theme Toggle -->
+                <button id="themeToggleMobile" class="md:hidden p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:block text-amber-400"></i>
+                </button>
+            </div>
+
+            <!-- Global Actions & Search Bar -->
+            <div class="flex items-center space-x-3 w-full md:w-auto">
+                <div class="relative w-full md:w-80">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="searchInput" placeholder="Cari kota di Indonesia..." 
+                        class="w-full pl-10 pr-4 py-2 text-sm bg-slate-100 dark:bg-slate-800 border-none rounded-xl focus:ring-2 focus:ring-sky-500 focus:outline-none dark:text-white placeholder-slate-400 transition">
+                </div>
+                <!-- Desktop Theme Toggle -->
+                <button id="themeToggle" class="hidden md:flex items-center justify-center p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:block text-amber-400"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6 space-y-6">
+
+        <!-- Alerts Section (Peringatan Dini) -->
+        <div id="alertBanner" class="bg-gradient-to-r from-amber-500/10 via-red-500/10 to-rose-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="flex items-start space-x-3">
+                <div class="p-2.5 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl mt-0.5 md:mt-0">
+                    <i class="fa-solid fa-triangle-exclamation text-lg animate-pulse"></i>
+                </div>
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="font-semibold text-amber-700 dark:text-amber-400 text-sm uppercase tracking-wide">Peringatan Dini Cuaca Ekstrem</span>
+                        <span class="text-xs bg-amber-200 dark:bg-amber-900/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full font-medium">Aktif Hari Ini</span>
+                    </div>
+                    <p class="text-sm text-slate-600 dark:text-slate-300 mt-0.5" id="alertText">
+                        Potensi hujan lebat disertai angin kencang di wilayah Medan, Bandung, dan Balikpapan. Waspada dampak genangan air/banjir lokal.
+                    </p>
+                </div>
+            </div>
+            <button onclick="document.getElementById('alertBanner').remove()" class="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 self-end md:self-center">
+                <i class="fa-solid fa-xmark text-base"></i>
+            </button>
+        </div>
+
+        <!-- Summary Statistics Cards -->
+        <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Total Cerah -->
+            <div class="bg-white dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center space-x-4">
+                <div class="p-3 bg-amber-500/10 text-amber-500 rounded-2xl">
+                    <i class="fa-solid fa-sun text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Cerah / Berawan</p>
+                    <h3 class="text-2xl font-bold text-slate-800 dark:text-white mt-0.5" id="statCerah">0</h3>
+                    <span class="text-[11px] text-amber-600 dark:text-amber-400">Kondisi Aman</span>
+                </div>
+            </div>
+
+            <!-- Total Berawan Tebal -->
+            <div class="bg-white dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center space-x-4">
+                <div class="p-3 bg-slate-500/10 text-slate-400 rounded-2xl">
+                    <i class="fa-solid fa-cloud text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Mendung / Berawan</p>
+                    <h3 class="text-2xl font-bold text-slate-800 dark:text-white mt-0.5" id="statBerawan">0</h3>
+                    <span class="text-[11px] text-slate-500">Potensi Hujan</span>
+                </div>
+            </div>
+
+            <!-- Total Hujan Ringan -->
+            <div class="bg-white dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center space-x-4">
+                <div class="p-3 bg-sky-500/10 text-sky-500 rounded-2xl">
+                    <i class="fa-solid fa-cloud-sun-rain text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Hujan Ringan - Sedang</p>
+                    <h3 class="text-2xl font-bold text-slate-800 dark:text-white mt-0.5" id="statHujanRingan">0</h3>
+                    <span class="text-[11px] text-sky-600 dark:text-sky-400">Intensitas Rendah</span>
+                </div>
+            </div>
+
+            <!-- Total Hujan Lebat -->
+            <div class="bg-white dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex items-center space-x-4">
+                <div class="p-3 bg-indigo-500/10 text-indigo-500 rounded-2xl">
+                    <i class="fa-solid fa-cloud-showers-heavy text-2xl"></i>
+                </div>
+                <div>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Hujan Lebat & Petir</p>
+                    <h3 class="text-2xl font-bold text-slate-800 dark:text-white mt-0.5" id="statHujanLebat">0</h3>
+                    <span class="text-[11px] text-rose-500 font-medium">Waspada Banjir</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Filters Section -->
+        <section class="bg-white dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+            
+            <!-- Region Filters -->
+            <div class="flex items-center space-x-1.5 overflow-x-auto pb-2 lg:pb-0 scrollbar-none" id="regionFilters">
+                <button data-region="semua" class="filter-btn active px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all bg-sky-500 text-white shadow-md shadow-sky-500/20">
+                    Semua Wilayah
+                </button>
+                <button data-region="Sumatera" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+                    Sumatera
+                </button>
+                <button data-region="Jawa" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+                    Jawa
+                </button>
+                <button data-region="Kalimantan" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+                    Kalimantan
+                </button>
+                <button data-region="Sulawesi" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+                    Sulawesi
+                </button>
+                <button data-region="BaliNusra" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+                    Bali & Nusa Tenggara
+                </button>
+                <button data-region="PapuaMaluku" class="filter-btn px-3.5 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all bg-slate-100 dark:bg-slate-700/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
+                    Papua & Maluku
+                </button>
+            </div>
+
+            <!-- Condition Filter & Sort -->
+            <div class="flex items-center space-x-3 self-end lg:self-auto w-full sm:w-auto">
+                <select id="conditionFilter" class="w-full sm:w-auto px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-700 border-none rounded-xl focus:ring-2 focus:ring-sky-500 dark:text-white cursor-pointer font-medium">
+                    <option value="semua">Semua Kondisi</option>
+                    <option value="Cerah">Cerah / Berawan</option>
+                    <option value="Berawan">Mendung</option>
+                    <option value="Hujan Ringan">Hujan Ringan</option>
+                    <option value="Hujan Lebat">Hujan Lebat</option>
+                </select>
+
+                <select id="sortBy" class="w-full sm:w-auto px-3 py-1.5 text-xs bg-slate-100 dark:bg-slate-700 border-none rounded-xl focus:ring-2 focus:ring-sky-500 dark:text-white cursor-pointer font-medium">
+                    <option value="nama">Urutkan: Nama (A-Z)</option>
+                    <option value="hujan">Urutkan: Curah Hujan Tertinggi</option>
+                    <option value="suhu">Urutkan: Suhu Tertinggi</option>
+                </select>
+            </div>
+        </section>
+
+        <!-- Main Data View Section (Grid City Cards & Selected City Details) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left 2 Columns: Weather Cards Grid -->
+            <div class="lg:col-span-2 space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-base font-bold text-slate-800 dark:text-white flex items-center space-x-2">
+                        <span>Daftar Kota</span>
+                        <span id="cityCountBadge" class="text-xs bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-semibold">0</span>
+                    </h2>
+                    <span class="text-xs text-slate-400">Klik kota untuk melihat detail grafik</span>
+                </div>
+
+                <!-- Grid City Cards -->
+                <div id="cityGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Cards will be populated dynamically -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="emptyState" class="hidden flex-col items-center justify-center py-12 text-center bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700">
+                    <div class="p-4 bg-slate-100 dark:bg-slate-700 rounded-full text-slate-400 mb-3">
+                        <i class="fa-solid fa-magnifying-glass text-2xl"></i>
+                    </div>
+                    <h3 class="font-bold text-slate-700 dark:text-slate-200">Tidak ada kota ditemukan</h3>
+                    <p class="text-xs text-slate-400 mt-1">Coba sesuaikan kata kunci atau filter kondisi cuaca Anda.</p>
+                </div>
+            </div>
+
+            <!-- Right Column: Analytics & Selected City Detail -->
+            <div class="space-y-6">
+
+                <!-- Selected City Overview Card -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm relative overflow-hidden">
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <span class="text-xs font-semibold text-sky-600 dark:text-sky-400 uppercase tracking-wider">Fokus Wilayah Terpilih</span>
+                            <h3 id="selectedCityName" class="text-2xl font-extrabold text-slate-800 dark:text-white">Jakarta</h3>
+                            <p id="selectedCityRegion" class="text-xs text-slate-400">DKI Jakarta, Jawa</p>
+                        </div>
+                        <div id="selectedCityIcon" class="text-4xl text-amber-500">
+                            <i class="fa-solid fa-sun"></i>
+                        </div>
+                    </div>
+
+                    <!-- Main Stats for Selected City -->
+                    <div class="grid grid-cols-2 gap-3 py-3 border-y border-slate-100 dark:border-slate-700/60 my-4">
+                        <div>
+                            <span class="text-xs text-slate-400">Suhu Saat Ini</span>
+                            <p id="selectedCityTemp" class="text-xl font-bold text-slate-700 dark:text-slate-200">32°C</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-400">Curah Hujan</span>
+                            <p id="selectedCityRain" class="text-xl font-bold text-sky-600 dark:text-sky-400">0 mm/jam</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-400">Kelembapan</span>
+                            <p id="selectedCityHumidity" class="text-sm font-semibold text-slate-700 dark:text-slate-300">75%</p>
+                        </div>
+                        <div>
+                            <span class="text-xs text-slate-400">Kecepatan Angin</span>
+                            <p id="selectedCityWind" class="text-sm font-semibold text-slate-700 dark:text-slate-300">14 km/jam</p>
+                        </div>
+                    </div>
+
+                    <!-- Additional Details -->
+                    <div class="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                        <span>Indeks UV: <strong id="selectedCityUV" class="text-slate-700 dark:text-slate-200">8 (Tinggi)</strong></span>
+                        <span>Status: <strong id="selectedCityStatus" class="text-amber-600 dark:text-amber-400">Cerah Berawan</strong></span>
+                    </div>
+                </div>
+
+                <!-- Rain Trend Hourly Chart (24 Jam) -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-chart-line text-sky-500"></i>
+                            <span>Prediksi Curah Hujan 24 Jam</span>
+                        </h3>
+                        <span class="text-[10px] bg-sky-100 dark:bg-sky-900/50 text-sky-700 dark:text-sky-300 px-2 py-0.5 rounded-full">Per Jam</span>
+                    </div>
+                    <div class="h-48 w-full">
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Monthly Historical Precipitation Chart -->
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-800 shadow-sm space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-slate-800 dark:text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-chart-column text-teal-500"></i>
+                            <span>Pola Curah Hujan Tahunan</span>
+                        </h3>
+                        <span class="text-[10px] bg-teal-100 dark:bg-teal-900/50 text-teal-700 dark:text-teal-300 px-2 py-0.5 rounded-full">Bulanan (mm)</span>
+                    </div>
+                    <div class="h-48 w-full">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 border-t border-slate-200 dark:border-slate-800 py-6 text-center text-xs text-slate-500 dark:text-slate-400">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p>© 2026 CuacaNusantara. Data Simulasi Pemantauan Cuaca Indonesia.</p>
+            <div class="flex items-center space-x-4">
+                <span class="flex items-center space-x-1"><i class="fa-solid fa-circle text-emerald-500 text-[8px]"></i> <span>Sistem Normal</span></span>
+                <span>Pembaruan Otomatis: Real-time</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Data Dummy Kota-Kota Utama Indonesia & Kondisi Cuacanya
+        const cityData = [
+            {
+                id: 'jakarta',
+                name: 'Jakarta',
+                province: 'DKI Jakarta',
+                region: 'Jawa',
+                temp: 32,
+                humidity: 78,
+                rainRate: 0,
+                windSpeed: 14,
+                condition: 'Cerah',
+                statusText: 'Cerah Berawan',
+                uvIndex: '8 (Tinggi)',
+                hourlyRain: [0, 0, 0, 0, 0, 0, 2, 5, 1, 0, 0, 0],
+                monthlyRain: [320, 300, 210, 140, 90, 50, 40, 30, 45, 110, 220, 290]
+            },
+            {
+                id: 'surabaya',
+                name: 'Surabaya',
+                province: 'Jawa Timur',
+                region: 'Jawa',
+                temp: 34,
+                humidity: 70,
+                rainRate: 0,
+                windSpeed: 18,
+                condition: 'Cerah',
+                statusText: 'Cerah Panas',
+                uvIndex: '10 (Sangat Tinggi)',
+                hourlyRain: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [330, 310, 240, 150, 80, 40, 20, 15, 25, 80, 180, 270]
+            },
+            {
+                id: 'bandung',
+                name: 'Bandung',
+                province: 'Jawa Barat',
+                region: 'Jawa',
+                temp: 24,
+                humidity: 88,
+                rainRate: 15.5,
+                windSpeed: 12,
+                condition: 'Hujan Lebat',
+                statusText: 'Hujan Deras & Petir',
+                uvIndex: '3 (Sedang)',
+                hourlyRain: [2, 5, 12, 18, 22, 15, 10, 6, 4, 1, 0, 0],
+                monthlyRain: [280, 260, 290, 240, 180, 110, 80, 90, 130, 250, 310, 330]
+            },
+            {
+                id: 'medan',
+                name: 'Medan',
+                province: 'Sumatera Utara',
+                region: 'Sumatera',
+                temp: 27,
+                humidity: 85,
+                rainRate: 22.0,
+                windSpeed: 20,
+                condition: 'Hujan Lebat',
+                statusText: 'Hujan Lebat & Angin',
+                uvIndex: '2 (Rendah)',
+                hourlyRain: [10, 15, 22, 28, 20, 14, 8, 4, 2, 0, 0, 0],
+                monthlyRain: [160, 140, 180, 210, 240, 170, 190, 230, 290, 340, 280, 230]
+            },
+            {
+                id: 'palembang',
+                name: 'Palembang',
+                province: 'Sumatera Selatan',
+                region: 'Sumatera',
+                temp: 31,
+                humidity: 76,
+                rainRate: 2.1,
+                windSpeed: 10,
+                condition: 'Hujan Ringan',
+                statusText: 'Hujan Ringan Lokal',
+                uvIndex: '6 (Sedang)',
+                hourlyRain: [0, 1, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [270, 250, 280, 260, 170, 110, 90, 100, 140, 220, 290, 320]
+            },
+            {
+                id: 'makassar',
+                name: 'Makassar',
+                province: 'Sulawesi Selatan',
+                region: 'Sulawesi',
+                temp: 30,
+                humidity: 80,
+                rainRate: 4.5,
+                windSpeed: 16,
+                condition: 'Hujan Ringan',
+                statusText: 'Hujan Ringan',
+                uvIndex: '5 (Sedang)',
+                hourlyRain: [1, 2, 5, 4, 3, 1, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [540, 480, 320, 180, 90, 50, 30, 15, 20, 70, 210, 460]
+            },
+            {
+                id: 'manado',
+                name: 'Manado',
+                province: 'Sulawesi Utara',
+                region: 'Sulawesi',
+                temp: 28,
+                humidity: 82,
+                rainRate: 0,
+                windSpeed: 11,
+                condition: 'Berawan',
+                statusText: 'Berawan Tebal',
+                uvIndex: '7 (Tinggi)',
+                hourlyRain: [0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [310, 260, 240, 200, 210, 180, 150, 120, 130, 180, 250, 300]
+            },
+            {
+                id: 'denpasar',
+                name: 'Denpasar',
+                province: 'Bali',
+                region: 'BaliNusra',
+                temp: 31,
+                humidity: 73,
+                rainRate: 0,
+                windSpeed: 15,
+                condition: 'Cerah',
+                statusText: 'Cerah Cerah',
+                uvIndex: '9 (Sangat Tinggi)',
+                hourlyRain: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [340, 280, 210, 90, 70, 50, 40, 25, 35, 90, 150, 270]
+            },
+            {
+                id: 'mataram',
+                name: 'Mataram',
+                province: 'Nusa Tenggara Barat',
+                region: 'BaliNusra',
+                temp: 30,
+                humidity: 75,
+                rainRate: 0,
+                windSpeed: 13,
+                condition: 'Berawan',
+                statusText: 'Cerah Berawan',
+                uvIndex: '8 (Tinggi)',
+                hourlyRain: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [280, 240, 190, 100, 60, 40, 30, 15, 25, 70, 140, 230]
+            },
+            {
+                id: 'balikpapan',
+                name: 'Balikpapan',
+                province: 'Kalimantan Timur',
+                region: 'Kalimantan',
+                temp: 26,
+                humidity: 90,
+                rainRate: 18.0,
+                windSpeed: 19,
+                condition: 'Hujan Lebat',
+                statusText: 'Hujan Lebat Disertai Angin',
+                uvIndex: '3 (Sedang)',
+                hourlyRain: [5, 10, 18, 20, 15, 8, 4, 1, 0, 0, 0, 0],
+                monthlyRain: [210, 190, 230, 220, 240, 230, 190, 180, 190, 200, 220, 240]
+            },
+            {
+                id: 'pontianak',
+                name: 'Pontianak',
+                province: 'Kalimantan Barat',
+                region: 'Kalimantan',
+                temp: 29,
+                humidity: 84,
+                rainRate: 3.0,
+                windSpeed: 9,
+                condition: 'Hujan Ringan',
+                statusText: 'Hujan Ringan',
+                uvIndex: '6 (Sedang)',
+                hourlyRain: [0, 1, 3, 2, 1, 0, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [260, 220, 250, 290, 270, 210, 200, 230, 270, 340, 370, 310]
+            },
+            {
+                id: 'jayapura',
+                name: 'Jayapura',
+                province: 'Papua',
+                region: 'PapuaMaluku',
+                temp: 29,
+                humidity: 81,
+                rainRate: 1.5,
+                windSpeed: 10,
+                condition: 'Hujan Ringan',
+                statusText: 'Hujan Lokal',
+                uvIndex: '7 (Tinggi)',
+                hourlyRain: [0, 1, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [310, 280, 320, 210, 170, 150, 130, 140, 150, 180, 200, 260]
+            },
+            {
+                id: 'ambon',
+                name: 'Ambon',
+                province: 'Maluku',
+                region: 'PapuaMaluku',
+                temp: 27,
+                humidity: 86,
+                rainRate: 0,
+                windSpeed: 12,
+                condition: 'Berawan',
+                statusText: 'Berawan',
+                uvIndex: '6 (Sedang)',
+                hourlyRain: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                monthlyRain: [120, 110, 140, 240, 510, 630, 600, 410, 250, 150, 110, 110]
+            }
+        ];
+
+        // App State
+        let activeRegion = 'semua';
+        let activeCondition = 'semua';
+        let searchQuery = '';
+        let sortBy = 'nama';
+        let selectedCity = cityData[0];
+
+        // Chart Instances
+        let hourlyChartInstance = null;
+        let monthlyChartInstance = null;
+
+        // DOM Elements
+        const cityGrid = document.getElementById('cityGrid');
+        const emptyState = document.getElementById('emptyState');
+        const searchInput = document.getElementById('searchInput');
+        const conditionFilter = document.getElementById('conditionFilter');
+        const sortBySelect = document.getElementById('sortBy');
+        const cityCountBadge = document.getElementById('cityCountBadge');
+
+        // Theme Toggle Functionality
+        function initTheme() {
+            const isDark = localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+            } else {
+                document.documentElement.classList.remove('dark');
+            }
+        }
+
+        function toggleTheme() {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+            // Re-render charts for theme compatibility
+            updateCharts();
+        }
+
+        document.getElementById('themeToggle').addEventListener('click', toggleTheme);
+        document.getElementById('themeToggleMobile').addEventListener('click', toggleTheme);
+
+        // Weather Icon Helper
+        function getWeatherIcon(condition) {
+            switch(condition) {
+                case 'Cerah':
+                    return '<i class="fa-solid fa-sun text-amber-500"></i>';
+                case 'Berawan':
+                    return '<i class="fa-solid fa-cloud text-slate-400"></i>';
+                case 'Hujan Ringan':
+                    return '<i class="fa-solid fa-cloud-sun-rain text-sky-400"></i>';
+                case 'Hujan Lebat':
+                    return '<i class="fa-solid fa-cloud-showers-heavy text-indigo-500 animate-bounce"></i>';
+                default:
+                    return '<i class="fa-solid fa-sun text-amber-500"></i>';
+            }
+        }
+
+        // Badge Color Helper
+        function getStatusBadge(condition) {
+            switch(condition) {
+                case 'Cerah':
+                    return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Cerah</span>';
+                case 'Berawan':
+                    return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300">Berawan</span>';
+                case 'Hujan Ringan':
+                    return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">Hujan Ringan</span>';
+                case 'Hujan Lebat':
+                    return '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300">Hujan Lebat</span>';
+                default:
+                    return '';
+            }
+        }
+
+        // Update Summary Cards Stats
+        function updateSummaryStats() {
+            const cerahCount = cityData.filter(c => c.condition === 'Cerah').length;
+            const berawanCount = cityData.filter(c => c.condition === 'Berawan').length;
+            const hujanRinganCount = cityData.filter(c => c.condition === 'Hujan Ringan').length;
+            const hujanLebatCount = cityData.filter(c => c.condition === 'Hujan Lebat').length;
+
+            document.getElementById('statCerah').textContent = cerahCount;
+            document.getElementById('statBerawan').textContent = berawanCount;
+            document.getElementById('statHujanRingan').textContent = hujanRinganCount;
+            document.getElementById('statHujanLebat').textContent = hujanLebatCount;
+        }
+
+        // Render City Cards Grid
+        function renderCities() {
+            // Filter logic
+            let filtered = cityData.filter(city => {
+                const matchesRegion = activeRegion === 'semua' || city.region === activeRegion;
+                const matchesCondition = activeCondition === 'semua' || city.condition === activeCondition;
+                const matchesSearch = city.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                      city.province.toLowerCase().includes(searchQuery.toLowerCase());
+                return matchesRegion && matchesCondition && matchesSearch;
+            });
+
+            // Sorting logic
+            if (sortBy === 'nama') {
+                filtered.sort((a, b) => a.name.localeCompare(b.name));
+            } else if (sortBy === 'hujan') {
+                filtered.sort((a, b) => b.rainRate - a.rainRate);
+            } else if (sortBy === 'suhu') {
+                filtered.sort((a, b) => b.temp - a.temp);
+            }
+
+            cityCountBadge.textContent = filtered.length;
+
+            if (filtered.length === 0) {
+                cityGrid.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                emptyState.classList.add('flex');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+                emptyState.classList.remove('flex');
+            }
+
+            cityGrid.innerHTML = filtered.map(city => {
+                const isSelected = selectedCity.id === city.id;
+                const activeClass = isSelected 
+                    ? 'ring-2 ring-sky-500 border-transparent shadow-md' 
+                    : 'border-slate-200/80 dark:border-slate-800 hover:border-sky-300 dark:hover:border-sky-700';
+
+                return `
+                    <div onclick="selectCity('${city.id}')" 
+                        class="bg-white dark:bg-slate-800/90 rounded-2xl p-4 border transition-all duration-200 cursor-pointer ${activeClass} flex flex-col justify-between space-y-3 hover:shadow-md">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="font-bold text-base text-slate-800 dark:text-white">${city.name}</h4>
+                                <p class="text-xs text-slate-400">${city.province}</p>
+                            </div>
+                            <div class="text-2xl">
+                                ${getWeatherIcon(city.condition)}
+                            </div>
+                        </div>
+
+                        <div class="flex items-baseline justify-between pt-1">
+                            <div>
+                                <span class="text-2xl font-extrabold text-slate-800 dark:text-white">${city.temp}°C</span>
+                                <span class="text-xs text-slate-400 ml-1 font-medium">/ Hum: ${city.humidity}%</span>
+                            </div>
+                            ${getStatusBadge(city.condition)}
+                        </div>
+
+                        <div class="pt-2 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                            <span class="flex items-center space-x-1">
+                                <i class="fa-solid fa-droplet text-sky-500"></i>
+                                <span>${city.rainRate} mm/jam</span>
+                            </span>
+                            <span class="flex items-center space-x-1">
+                                <i class="fa-solid fa-wind text-slate-400"></i>
+                                <span>${city.windSpeed} km/j</span>
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Select City Action
+        function selectCity(cityId) {
+            const found = cityData.find(c => c.id === cityId);
+            if (found) {
+                selectedCity = found;
+                updateSelectedCityCard();
+                updateCharts();
+                renderCities(); // re-render to update active border highlight
+            }
+        }
+
+        // Update Detail Panel for Selected City
+        function updateSelectedCityCard() {
+            document.getElementById('selectedCityName').textContent = selectedCity.name;
+            document.getElementById('selectedCityRegion').textContent = `${selectedCity.province}, Pulau ${selectedCity.region}`;
+            document.getElementById('selectedCityIcon').innerHTML = getWeatherIcon(selectedCity.condition);
+            document.getElementById('selectedCityTemp').textContent = `${selectedCity.temp}°C`;
+            document.getElementById('selectedCityRain').textContent = `${selectedCity.rainRate} mm/jam`;
+            document.getElementById('selectedCityHumidity').textContent = `${selectedCity.humidity}%`;
+            document.getElementById('selectedCityWind').textContent = `${selectedCity.windSpeed} km/jam`;
+            document.getElementById('selectedCityUV').textContent = selectedCity.uvIndex;
+            document.getElementById('selectedCityStatus').textContent = selectedCity.statusText;
+        }
+
+        // Charts Initialization & Rendering
+        function updateCharts() {
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#94a3b8' : '#64748b';
+            const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+            // 1. Hourly Forecast Chart (Line Chart)
+            const hourlyCtx = document.getElementById('hourlyChart').getContext('2d');
+            const hourlyLabels = ['00:00', '02:00', '04:00', '06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
+
+            if (hourlyChartInstance) {
+                hourlyChartInstance.destroy();
+            }
+
+            hourlyChartInstance = new Chart(hourlyCtx, {
+                type: 'line',
+                data: {
+                    labels: hourlyLabels,
+                    datasets: [{
+                        label: 'Presipitasi (mm/jam)',
+                        data: selectedCity.hourlyRain,
+                        borderColor: '#0ea5e9',
+                        backgroundColor: 'rgba(14, 165, 233, 0.15)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#0ea5e9',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: textColor, font: { size: 10 } },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: { color: textColor, font: { size: 10 } },
+                            grid: { color: gridColor },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // 2. Monthly Trend Chart (Bar Chart)
+            const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
+            const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+            if (monthlyChartInstance) {
+                monthlyChartInstance.destroy();
+            }
+
+            monthlyChartInstance = new Chart(monthlyCtx, {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'Curah Hujan (mm)',
+                        data: selectedCity.monthlyRain,
+                        backgroundColor: 'rgba(20, 184, 166, 0.75)',
+                        hoverBackgroundColor: '#14b8a6',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: textColor, font: { size: 10 } },
+                            grid: { display: false }
+                        },
+                        y: {
+                            ticks: { color: textColor, font: { size: 10 } },
+                            grid: { color: gridColor },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Setup Event Listeners
+        function setupEventListeners() {
+            // Region Filter Buttons
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    filterBtns.forEach(b => {
+                        b.classList.remove('bg-sky-500', 'text-white', 'shadow-md', 'shadow-sky-500/20');
+                        b.classList.add('bg-slate-100', 'dark:bg-slate-700/60', 'text-slate-600', 'dark:text-slate-300');
+                    });
+                    
+                    e.target.classList.remove('bg-slate-100', 'dark:bg-slate-700/60', 'text-slate-600', 'dark:text-slate-300');
+                    e.target.classList.add('bg-sky-500', 'text-white', 'shadow-md', 'shadow-sky-500/20');
+
+                    activeRegion = e.target.getAttribute('data-region');
+                    renderCities();
+                });
+            });
+
+            // Condition Filter Select
+            conditionFilter.addEventListener('change', (e) => {
+                activeCondition = e.target.value;
+                renderCities();
+            });
+
+            // Sort Select
+            sortBySelect.addEventListener('change', (e) => {
+                sortBy = e.target.value;
+                renderCities();
+            });
+
+            // Live Search Input
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value;
+                renderCities();
+            });
+        }
+
+        // Initialize Application
+        window.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            updateSummaryStats();
+            updateSelectedCityCard();
+            renderCities();
+            updateCharts();
+            setupEventListeners();
+        });
+    </script>
+</body>
+</html>
